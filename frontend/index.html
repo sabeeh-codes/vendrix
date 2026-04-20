@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vendrix — Shop</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">
+    <img src="assets/logo/vendrix-logo.png" alt="Vendrix"
+         onerror="this.style.display='none';document.querySelector('.nav-logo-text').style.display='block'">
+    <span class="nav-logo-text" style="display:none">Vendrix</span>
+  </div>
+  <div class="nav-links">
+    <a href="index.html" class="active">Products</a>
+    <a href="cart.html" class="nav-cart-link">
+      Cart
+      <!-- shows number of items in cart -->
+      <span class="cart-count" id="cart-count" style="display:none">0</span>
+    </a>
+    <a href="orders.html">Orders</a>
+    <div class="nav-user" id="nav-user" style="display:none">
+      <div class="nav-avatar" id="nav-avatar"></div>
+      <span id="nav-username"></span>
+    </div>
+    <button id="logout-btn" style="display:none">Logout</button>
+    <a href="auth.html" id="nav-login">Login</a>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <h1 class="page-title">Our Collection</h1>
+    <p class="page-subtitle">Discover the latest styles for everyone</p>
+  </div>
+
+  <!-- gender filter buttons -->
+  <div style="margin-bottom:20px;">
+    <div class="gender-pills" id="gender-pills">
+      <button class="gender-pill active" data-gender="">All</button>
+      <button class="gender-pill" data-gender="men">Men</button>
+      <button class="gender-pill" data-gender="women">Women</button>
+      <button class="gender-pill" data-gender="kids">Kids</button>
+      <button class="gender-pill" data-gender="unisex">Unisex</button>
+    </div>
+  </div>
+
+  <!-- filters section for searching products -->
+  <div class="filters">
+    <input type="text" id="search" placeholder="Search products...">
+    <select id="category">
+      <option value="">All Categories</option>
+    </select>
+    <input type="number" id="min-price" placeholder="Min $" min="0" style="width:110px">
+    <input type="number" id="max-price" placeholder="Max $" min="0" style="width:110px">
+    <select id="ordering">
+      <option value="-created_at">Newest First</option>
+      <option value="price">Price: Low to High</option>
+      <option value="-price">Price: High to Low</option>
+      <option value="name">Name A–Z</option>
+    </select>
+    <button class="btn btn-secondary btn-sm" id="search-btn">Search</button>
+    <button class="btn btn-ghost btn-sm" id="reset-btn">Reset</button>
+  </div>
+
+  <!-- alert messages will show here -->
+  <div id="alert" style="display:none"></div>
+
+  <!-- products will be loaded here -->
+  <div id="products-container">
+    <div class="loading">
+      <div class="loading-spinner"></div>
+      Loading products...
+    </div>
+  </div>
+</div>
+
+<!-- small popup toast message -->
+<div class="toast" id="toast"></div>
+
+<script src="api.js"></script>
+<script src="index.js"></script>
+<script>
+  // setup navbar depending on login state
+  function initNav() {
+    const loggedIn = isLoggedIn();
+    const username = localStorage.getItem('username') || '';
+
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) logoutBtn.style.display = loggedIn ? 'inline-block' : 'none';
+
+    const loginLink = document.getElementById('nav-login');
+    if (loginLink) loginLink.style.display = loggedIn ? 'none' : 'inline-block';
+
+    const navUser = document.getElementById('nav-user');
+    if (navUser) navUser.style.display = loggedIn ? 'flex' : 'none';
+
+    // show username and first letter as avatar
+    if (loggedIn && username) {
+      const navUsername = document.getElementById('nav-username');
+      const navAvatar   = document.getElementById('nav-avatar');
+      if (navUsername) navUsername.textContent = username;
+      if (navAvatar)   navAvatar.textContent   = username.charAt(0).toUpperCase();
+    }
+  }
+
+  // run on page load
+  initNav();
+</script>
+</body>
+</html>

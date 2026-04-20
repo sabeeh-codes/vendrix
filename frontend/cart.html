@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vendrix — Cart</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">
+    <img src="assets/logo/vendrix-logo.png" alt="Vendrix"
+         onerror="this.style.display='none';document.querySelector('.nav-logo-text').style.display='block'">
+    <span class="nav-logo-text" style="display:none">Vendrix</span>
+  </div>
+  <div class="nav-links">
+    <a href="index.html">Products</a>
+    <a href="cart.html" class="active nav-cart-link">Cart</a>
+    <a href="orders.html">Orders</a>
+    <div class="nav-user" id="nav-user" style="display:none">
+      <div class="nav-avatar" id="nav-avatar"></div>
+      <span id="nav-username"></span>
+    </div>
+    <button id="logout-btn" style="display:none">Logout</button>
+    <a href="auth.html" id="nav-login">Login</a>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <h1 class="page-title">Your Cart</h1>
+    <p class="page-subtitle">Review your items before checkout</p>
+  </div>
+
+  <!-- place to show alerts like errors/success -->
+  <div id="alert" style="display:none"></div>
+
+  <!-- cart items will load here -->
+  <div id="cart-container">
+    <div class="loading">
+      <div class="loading-spinner"></div>
+      Loading your cart...
+    </div>
+  </div>
+</div>
+
+<!-- checkout popup/modal -->
+<div class="modal-overlay" id="checkout-modal">
+  <div class="modal">
+    <h3>Confirm Your Order</h3>
+    <p class="modal-sub">Enter your shipping address to place the order</p>
+
+    <!-- user enters shipping address here -->
+    <div class="form-group">
+      <label>Full Shipping Address</label>
+      <textarea id="shipping-address" rows="3"
+        placeholder="House 5, Block C, Rawalpindi, Pakistan"></textarea>
+    </div>
+
+    <!-- modal alert messages -->
+    <div id="modal-alert" style="display:none"></div>
+
+    <!-- action buttons -->
+    <div class="modal-actions">
+      <button class="btn btn-primary" style="flex:1" id="place-order-btn">Place Order</button>
+      <button class="btn btn-ghost" id="cancel-order-btn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="api.js"></script>
+<script src="cart.js"></script>
+<script>
+  // setup navbar based on login state
+  function initNav() {
+    const loggedIn = isLoggedIn();
+    const username = localStorage.getItem('username') || '';
+
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) logoutBtn.style.display = loggedIn ? 'inline-block' : 'none';
+
+    const loginLink = document.getElementById('nav-login');
+    if (loginLink) loginLink.style.display = loggedIn ? 'none' : 'inline-block';
+
+    const navUser = document.getElementById('nav-user');
+    if (navUser) navUser.style.display = loggedIn ? 'flex' : 'none';
+
+    // show username + first letter avatar if logged in
+    if (loggedIn && username) {
+      const navUsername = document.getElementById('nav-username');
+      const navAvatar   = document.getElementById('nav-avatar');
+      if (navUsername) navUsername.textContent = username;
+      if (navAvatar)   navAvatar.textContent   = username.charAt(0).toUpperCase();
+    }
+  }
+
+  // run nav setup on page load
+  initNav();
+</script>
+</body>
+</html>

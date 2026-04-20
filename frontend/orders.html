@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vendrix — My Orders</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">
+    <img src="assets/logo/vendrix-logo.png" alt="Vendrix"
+         onerror="this.style.display='none';document.querySelector('.nav-logo-text').style.display='block'">
+    <span class="nav-logo-text" style="display:none">Vendrix</span>
+  </div>
+  <div class="nav-links">
+    <a href="index.html">Products</a>
+    <a href="cart.html" class="nav-cart-link">Cart</a>
+    <a href="orders.html" class="active">Orders</a>
+    <div class="nav-user" id="nav-user" style="display:none">
+      <div class="nav-avatar" id="nav-avatar"></div>
+      <span id="nav-username"></span>
+    </div>
+    <button id="logout-btn" style="display:none">Logout</button>
+    <a href="auth.html" id="nav-login">Login</a>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <h1 class="page-title">My Orders</h1>
+    <p class="page-subtitle">Track and view all your orders</p>
+  </div>
+
+  <!-- orders will be loaded here -->
+  <div id="orders-container">
+    <div class="loading">
+      <div class="loading-spinner"></div>
+      Loading your orders...
+    </div>
+  </div>
+</div>
+
+<script src="api.js"></script>
+<script src="orders.js"></script>
+<script>
+  // setup navbar based on login status
+  function initNav() {
+    const loggedIn = isLoggedIn();
+    const username = localStorage.getItem('username') || '';
+
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) logoutBtn.style.display = loggedIn ? 'inline-block' : 'none';
+
+    const loginLink = document.getElementById('nav-login');
+    if (loginLink) loginLink.style.display = loggedIn ? 'none' : 'inline-block';
+
+    const navUser = document.getElementById('nav-user');
+    if (navUser) navUser.style.display = loggedIn ? 'flex' : 'none';
+
+    // show username and avatar if logged in
+    if (loggedIn && username) {
+      const navUsername = document.getElementById('nav-username');
+      const navAvatar   = document.getElementById('nav-avatar');
+      if (navUsername) navUsername.textContent = username;
+      if (navAvatar)   navAvatar.textContent   = username.charAt(0).toUpperCase();
+    }
+  }
+
+  // run nav setup on page load
+  initNav();
+</script>
+</body>
+</html>
