@@ -1,6 +1,15 @@
-let activeGender = '';
+'use strict';
 
-// setup navbar based on login state
+const BASE_URL    = 'http://127.0.0.1:8000';
+const sliderState = {};
+let   activeGender = '';
+
+function fixUrl(url) {
+  if (!url) return null;
+  if (url.startsWith('http')) return url;
+  return BASE_URL + url;
+}
+
 function initNav() {
   const loggedIn = isLoggedIn();
   const username = localStorage.getItem('username') || '';
@@ -10,36 +19,36 @@ function initNav() {
   const navUser   = document.getElementById('nav-user');
 
   if (logoutBtn) logoutBtn.style.display = loggedIn ? 'inline-block' : 'none';
-  if (loginLink) loginLink.style.display  = loggedIn ? 'none' : 'inline-block';
-  if (navUser)   navUser.style.display    = loggedIn ? 'flex' : 'none';
+  if (loginLink) loginLink.style.display  = loggedIn ? 'none'        : 'inline-block';
+  if (navUser)   navUser.style.display    = loggedIn ? 'flex'        : 'none';
 
-  // show username and first letter as avatar
   if (loggedIn && username) {
-    const navUsername = document.getElementById('nav-username');
-    const navAvatar   = document.getElementById('nav-avatar');
-    if (navUsername) navUsername.textContent = username;
-    if (navAvatar)   navAvatar.textContent   = username.charAt(0).toUpperCase();
+    const un = document.getElementById('nav-username');
+    const av = document.getElementById('nav-avatar');
+    if (un) un.textContent = username;
+    if (av) av.textContent = username.charAt(0).toUpperCase();
   }
 }
 
-// small toast popup message
 function showToast(msg) {
   const el = document.getElementById('toast');
+  if (!el) return;
   el.textContent   = msg;
   el.style.display = 'block';
-  setTimeout(() => el.style.display = 'none', 2500);
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.style.display = 'none', 2500);
 }
 
-// alert message (error/success)
 function showAlert(msg, type = 'error') {
   const el = document.getElementById('alert');
+  if (!el) return;
   el.className     = `alert alert-${type}`;
   el.textContent   = msg;
   el.style.display = 'block';
-  setTimeout(() => el.style.display = 'none', 3000);
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.style.display = 'none', 3500);
 }
 
-// set selected gender filter and reload products
 function setGender(gender, el) {
   activeGender = gender;
   document.querySelectorAll('.gender-pill').forEach(p => p.classList.remove('active'));
@@ -47,42 +56,104 @@ function setGender(gender, el) {
   loadProducts();
 }
 
-// handle size button selection for product
-function selectSize(btn, productId) {
-  document.querySelectorAll(`#sizes-${productId} .size-btn`).forEach(b => {
-    b.classList.remove('selected');
-  });
-  btn.classList.add('selected');
-  document.getElementById(`size-${productId}`).value = btn.dataset.size;
-}
-
-// increase/decrease quantity (with limits)
-function changeQty(productId, delta, maxStock = 99) {
-  const input   = document.getElementById(`qty-${productId}`);
-  const display = document.getElementById(`qty-display-${productId}`);
-  let current   = parseInt(input.value) || 1;
-  current       = Math.min(Math.max(1, current + delta), maxStock);
-  input.value   = current;
-  display.textContent = current;
-}
-
-// load categories into dropdown
 async function loadCategories() {
   try {
     const data = await fetchCategories();
     const sel  = document.getElementById('category');
     (data.results ?? data).forEach(cat => {
-      const opt = document.createElement('option');
+      const opt       = document.createElement('option');
       opt.value       = cat.id;
       opt.textContent = cat.name;
       sel.appendChild(opt);
     });
   } catch (e) {
-    console.error('Category load failed', e);
+    console.warn('Categories failed to load:', e);
   }
 }
 
-// load products from API and render
+function selectSize(btn, productId) {
+  const sizeSection = btn.closest('.card-sizes');
+  if (!sizeSection) return;
+  sizeSection.querySelectorAll('.size-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  const hidden = sizeSection.querySelector('.size-hidden');
+  if (hidden) hidden.value = btn.dataset.size;
+}
+
+function selectColor(btn, productId) {
+  const card = btn.closest('.product-card');
+  if (!card) return;
+
+  card.querySelectorAll('.color-circle-btn').forEach(b => {
+    b.classList.remove('selected');
+    b.style.outline       = 'none';
+    b.style.outlineOffset = '0';
+    b.style.transform     = 'scale(1)';
+  });
+
+  btn.classList.add('selected');
+  btn.style.outline       = '2.5px solid #e94560';
+  btn.style.outlineOffset = '2px';
+  btn.style.transform     = 'scale(1.2)';
+
+  const colorHidden = card.querySelector('.color-hidden');
+  const nameLabel   = card.querySelector('.color-name-label');
+
+  if (colorHidden) colorHidden.value = btn.dataset.color;
+  if (nameLabel)   nameLabel.textContent = btn.dataset.color;
+}
+
+function changeQty(productId, delta, maxStock) {
+  const card = document.querySelector(`.product-card[data-product-id="${productId}"]`);
+  if (!card) return;
+
+  const hiddenEl  = card.querySelector('.qty-hidden');
+  const displayEl = card.querySelector('.qty-num');
+  if (!hiddenEl) return;
+
+  const limit  = (maxStock !== undefined && maxStock !== null) ? maxStock : 99;
+  let current  = parseInt(hiddenEl.value) || 1;
+  current      = Math.min(Math.max(1, current + delta), limit);
+
+  hiddenEl.value = current;
+  if (displayEl) displayEl.textContent = current;
+}
+
+function slideImage(productId, direction) {
+  const slider = document.getElementById(`slider-${productId}`);
+  if (!slider) return;
+  const slides = slider.querySelectorAll('.slide');
+  const dots   = slider.querySelectorAll('.dot');
+  if (!slides.length) return;
+
+  if (sliderState[productId] === undefined) sliderState[productId] = 0;
+
+  slides[sliderState[productId]].classList.remove('active');
+  if (dots[sliderState[productId]]) dots[sliderState[productId]].classList.remove('active');
+
+  sliderState[productId] = (sliderState[productId] + direction + slides.length) % slides.length;
+
+  slides[sliderState[productId]].classList.add('active');
+  if (dots[sliderState[productId]]) dots[sliderState[productId]].classList.add('active');
+}
+
+function goToSlide(productId, index) {
+  const slider = document.getElementById(`slider-${productId}`);
+  if (!slider) return;
+  const slides = slider.querySelectorAll('.slide');
+  const dots   = slider.querySelectorAll('.dot');
+  if (!slides.length) return;
+
+  if (sliderState[productId] === undefined) sliderState[productId] = 0;
+
+  slides[sliderState[productId]].classList.remove('active');
+  if (dots[sliderState[productId]]) dots[sliderState[productId]].classList.remove('active');
+
+  sliderState[productId] = index;
+  slides[index].classList.add('active');
+  if (dots[index]) dots[index].classList.add('active');
+}
+
 async function loadProducts() {
   const container = document.getElementById('products-container');
   container.innerHTML = `
@@ -91,156 +162,223 @@ async function loadProducts() {
       Loading products...
     </div>`;
 
-  // collect filter values
-  const params = {
-    search:    document.getElementById('search').value.trim(),
-    category:  document.getElementById('category').value,
-    min_price: document.getElementById('min-price').value,
-    max_price: document.getElementById('max-price').value,
-    ordering:  document.getElementById('ordering').value,
-    gender:    activeGender
-  };
+  const params    = {};
+  const search    = document.getElementById('search').value.trim();
+  const category  = document.getElementById('category').value;
+  const minPrice  = document.getElementById('min-price').value;
+  const maxPrice  = document.getElementById('max-price').value;
+  const ordering  = document.getElementById('ordering').value;
+
+  if (search)       params.search    = search;
+  if (category)     params.category  = category;
+  if (minPrice)     params.min_price = minPrice;
+  if (maxPrice)     params.max_price = maxPrice;
+  if (ordering)     params.ordering  = ordering;
+  if (activeGender) params.gender    = activeGender;
 
   try {
     const data     = await fetchProducts(params);
     const products = data.results ?? data;
 
-    // if no products found
     if (!products.length) {
       container.innerHTML = `
         <div class="empty-state">
+          <img class="empty-state-img" src="assets/icons/empty-box.svg" alt="">
           <h3>No products found</h3>
-          <p>Try adjusting filters</p>
+          <p>Try adjusting your filters</p>
+          <button class="btn btn-primary" onclick="resetFilters()">Clear Filters</button>
         </div>`;
       return;
     }
 
-    // render products in grid (fixed size cards)
-    container.innerHTML = `
-      <div class="products-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,220px));gap:20px;justify-content:start;">
-        ${products.map(productCard).join('')}
-      </div>`;
+    container.innerHTML = `<div class="products-grid">${products.map(productCard).join('')}</div>`;
 
   } catch (err) {
-    container.innerHTML = `<p>Error: ${err.message}</p>`;
+    container.innerHTML = `
+      <div class="empty-state">
+        <h3>Failed to load products</h3>
+        <p>${err.message}</p>
+      </div>`;
   }
 }
 
-// create single product card html
 function productCard(p) {
-  const imgSrc = p.image || '';
+  const pid = p.id;
 
-  // show image or fallback if missing
-  const imageHTML = imgSrc
-    ? `<img src="${imgSrc}" alt="${p.name}"
-           style="width:100%;height:200px;object-fit:contain;background:#f5f5f5;display:block;">`
-    : `<div style="height:200px;display:flex;align-items:center;justify-content:center;background:#f5f5f5;">
+  // Images
+  const allImages = [];
+  if (p.images && p.images.length) {
+    // sort primary image first, then by order
+    const sorted = [...p.images].sort((a, b) => {
+      if (a.is_primary && !b.is_primary) return -1;
+      if (!a.is_primary && b.is_primary) return 1;
+      return (a.order ?? 0) - (b.order ?? 0);
+    });
+    sorted.forEach(img => {
+      const url = fixUrl(img.image);
+      if (url) allImages.push(url);
+    });
+  }
+  if (!allImages.length && p.image) {
+    allImages.push(fixUrl(p.image));
+  }
+
+  const imageSlider = allImages.length
+    ? `<div class="slider" id="slider-${pid}">
+         <div class="slides">
+           ${allImages.map((src, i) => `
+             <div class="slide ${i === 0 ? 'active' : ''}">
+               <img src="${src}" alt="${p.name}" loading="lazy"
+                    style="width:100%;height:200px;object-fit:contain;
+                           background:#f5f5f5;display:block;">
+             </div>`).join('')}
+         </div>
+         ${allImages.length > 1 ? `
+           <button class="slide-btn slide-prev"
+             onclick="slideImage(${pid}, -1)">&#8249;</button>
+           <button class="slide-btn slide-next"
+             onclick="slideImage(${pid}, 1)">&#8250;</button>
+           <div class="slide-dots">
+             ${allImages.map((_, i) => `
+               <span class="dot ${i === 0 ? 'active' : ''}"
+                 onclick="goToSlide(${pid}, ${i})"></span>`).join('')}
+           </div>` : ''}
+       </div>`
+    : `<div class="no-image"
+             style="height:200px;display:flex;align-items:center;
+                    justify-content:center;background:#f5f5f5;">
          <span style="color:#aaa;font-size:12px;">No Image</span>
        </div>`;
 
-  // size buttons if product has sizes
-  const sizeButtons = (p.sizes && p.sizes.length)
-    ? `<div style="margin-bottom:8px;">
-         <span style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;">SIZE</span>
-         <div id="sizes-${p.id}" style="display:flex;gap:5px;flex-wrap:wrap;margin-top:4px;">
-           ${p.sizes.map((s, i) => `
+  // Sizes
+  const sizeArray   = Array.isArray(p.sizes) ? p.sizes : [];
+  const sizeSection = sizeArray.length
+    ? `<div class="card-sizes">
+         <span class="card-label">Size</span>
+         <div class="size-options">
+           ${sizeArray.map((s, i) => `
              <button type="button"
                class="size-btn ${i === 0 ? 'selected' : ''}"
                data-size="${s}"
-               onclick="selectSize(this, ${p.id})"
-               style="padding:3px 9px;font-size:11px;border-radius:4px;">
+               onclick="selectSize(this, ${pid})">
                ${s}
              </button>`).join('')}
          </div>
-         <input type="hidden" id="size-${p.id}" value="${p.sizes[0]}">
+         <input type="hidden" class="size-hidden" value="${sizeArray[0] || ''}">
        </div>`
     : '';
 
-  // quantity selector UI
-  const quantityControl = `
-    <div style="margin-bottom:8px;">
-      <span style="font-size:10px;font-weight:700;letter-spacing:1px;color:#888;">QUANTITY</span>
-      <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+  // Colors
+  const colorArray   = Array.isArray(p.colors) ? p.colors : [];
+  const colorSection = colorArray.length
+    ? `<div class="card-colors">
+         <span class="card-label">
+           Color —
+           <span class="color-name-label"
+                 style="font-weight:700;color:var(--dark);">
+             ${colorArray[0].name}
+           </span>
+         </span>
+         <div class="color-options">
+           ${colorArray.map((c, i) => `
+             <button type="button"
+               class="color-circle-btn ${i === 0 ? 'selected' : ''}"
+               data-color="${c.name}"
+               data-color-id="${c.id}"
+               title="${c.name}"
+               onclick="selectColor(this, ${pid})"
+               style="background:${c.hex_code};border:1.5px solid #bbb;
+                      outline:${i === 0 ? '2.5px solid #e94560' : 'none'};
+                      outline-offset:${i === 0 ? '2px' : '0'};
+                      transform:${i === 0 ? 'scale(1.2)' : 'scale(1)'};">
+             </button>`).join('')}
+         </div>
+         <input type="hidden" class="color-hidden"   value="${colorArray[0].name}">
+         <input type="hidden" class="color-id-hidden" value="${colorArray[0].id}">
+       </div>`
+    : '';
+
+  // Quantity
+  const qtySection = `
+    <div class="card-qty">
+      <span class="card-label">Qty</span>
+      <div class="qty-controls">
         <button type="button" class="qty-btn"
-          onclick="changeQty(${p.id}, -1)"
-          style="width:24px;height:24px;font-size:14px;line-height:1;">−</button>
-        <span id="qty-display-${p.id}"
-          style="min-width:18px;text-align:center;font-size:13px;">1</span>
+          onclick="changeQty(${pid}, -1)">−</button>
+        <span class="qty-num">1</span>
         <button type="button" class="qty-btn"
-          onclick="changeQty(${p.id}, 1, ${p.stock})"
-          style="width:24px;height:24px;font-size:14px;line-height:1;">+</button>
-        <input type="hidden" id="qty-${p.id}" value="1">
+          onclick="changeQty(${pid}, 1, ${p.stock ?? 0})">+</button>
+        <input type="hidden" class="qty-hidden" value="1">
       </div>
     </div>`;
 
+  const isNew = (Date.now() - new Date(p.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000;
+
   return `
-    <div class="product-card"
-         style="width:220px;font-size:13px;border-radius:10px;overflow:hidden;
-                box-shadow:0 2px 8px rgba(0,0,0,0.08);background:#fff;">
-      <div style="position:relative;">
-        ${imageHTML}
-        ${p.stock <= 0
-          ? '<span class="product-badge badge-out" style="position:absolute;top:8px;left:8px;">Out of stock</span>'
-          : ''}
+    <div class="product-card" data-product-id="${pid}">
+      <div class="product-image-wrap">
+        ${imageSlider}
+        ${isNew && p.stock > 0 ? '<span class="product-badge badge-new">New</span>' : ''}
+        ${p.stock <= 0          ? '<span class="product-badge badge-out">Out of stock</span>' : ''}
       </div>
-      <div style="padding:10px 12px 6px;">
-        <span class="product-category"
-              style="font-size:10px;font-weight:700;letter-spacing:1px;">
-          ${p.category_name || ''}
-        </span>
-        <h3 style="font-size:13px;font-weight:700;margin:3px 0 4px;line-height:1.3;">
-          ${p.name}
-        </h3>
-        <p style="font-size:11px;color:#777;margin:0 0 8px;line-height:1.4;
-                  display:-webkit-box;-webkit-line-clamp:2;
-                  -webkit-box-orient:vertical;overflow:hidden;">
-          ${p.description || ''}
-        </p>
-        ${sizeButtons}
-        ${quantityControl}
+      <div class="card-body">
+        <div style="display:flex;justify-content:space-between;
+                    align-items:center;margin-bottom:4px;">
+          <span class="product-category">${p.category_name || ''}</span>
+          ${p.gender
+            ? `<span class="gender-badge gender-${p.gender}">
+                 ${p.gender.charAt(0).toUpperCase() + p.gender.slice(1)}
+               </span>`
+            : ''}
+        </div>
+        <h3>${p.name}</h3>
+        <p class="product-desc">${p.description || ''}</p>
+        ${sizeSection}
+        ${colorSection}
+        ${qtySection}
       </div>
-      <div style="padding:8px 12px 12px;display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-size:16px;font-weight:800;color:#e63946;">
-          $${parseFloat(p.price).toFixed(2)}
-        </span>
+      <div class="card-footer">
+        <div class="price">
+          <span class="amount">$${parseFloat(p.price).toFixed(2)}</span>
+          ${p.stock > 0 ? `<span class="stock-left">${p.stock} left</span>` : ''}
+        </div>
         ${p.stock > 0
-          ? `<button class="btn btn-primary btn-sm add-cart-btn" data-id="${p.id}"
-               style="font-size:11px;padding:6px 12px;border-radius:20px;">
-               Add to Cart
-             </button>`
-          : `<span style="font-size:11px;color:#aaa;">Out of stock</span>`
-        }
+          ? `<button class="btn btn-primary btn-sm add-cart-btn"
+               data-id="${pid}">Add to Cart</button>`
+          : `<span class="out-of-stock">Out of stock</span>`}
       </div>
     </div>`;
 }
 
-// handle add to cart clicks (using event delegation)
-document.getElementById('products-container').addEventListener('click', async function (e) {
+document.getElementById('products-container').addEventListener('click', async e => {
   const btn = e.target.closest('.add-cart-btn');
   if (!btn) return;
 
-  // must be logged in to add items
-  if (!isLoggedIn()) {
-    showAlert('Login required');
-    return;
-  }
+  if (!isLoggedIn()) { showAlert('Please login to add items to cart.'); return; }
 
-  const productId = btn.dataset.id;
-  const sizeEl    = document.getElementById(`size-${productId}`);
-  const qtyEl     = document.getElementById(`qty-${productId}`);
-  const size      = sizeEl ? sizeEl.value : null;
-  const quantity  = qtyEl  ? parseInt(qtyEl.value) : 1;
+  const card = btn.closest('.product-card');
+  if (!card) return;
 
-  // basic validation
-  if (sizeEl && !size)           { showAlert('Please select a size'); return; }
-  if (!quantity || quantity < 1) { showAlert('Invalid quantity');      return; }
+  const sizeInput    = card.querySelector('.size-hidden');
+  const colorInput   = card.querySelector('.color-hidden');
+  const colorIdInput = card.querySelector('.color-id-hidden');
+  const qtyInput     = card.querySelector('.qty-hidden');
+
+  const size     = sizeInput    ? sizeInput.value.trim()               : null;
+  const color    = colorInput   ? colorInput.value.trim()              : null;
+  const color_id = colorIdInput ? parseInt(colorIdInput.value) || null : null;
+  const quantity = qtyInput     ? parseInt(qtyInput.value)    || 1     : 1;
+  const pid      = btn.dataset.id;
+
+  if (sizeInput  && !size)    { showAlert('Please select a size.');  return; }
+  if (colorInput && !color_id){ showAlert('Please select a color.'); return; }
 
   btn.disabled    = true;
   btn.textContent = 'Adding...';
 
   try {
-    await addToCart(productId, quantity, size);
-    showToast('Added to cart!');
+    await addToCart(pid, quantity, size || null, color_id);
+    showToast('Added to cart! 🛒');
   } catch (err) {
     showAlert(err.message);
   } finally {
@@ -249,7 +387,6 @@ document.getElementById('products-container').addEventListener('click', async fu
   }
 });
 
-// reset all filters back to default
 function resetFilters() {
   document.getElementById('search').value    = '';
   document.getElementById('category').value  = '';
@@ -257,28 +394,18 @@ function resetFilters() {
   document.getElementById('max-price').value = '';
   document.getElementById('ordering').value  = '-created_at';
   activeGender = '';
-  document.querySelectorAll('.gender-pill').forEach((p, i) => {
-    p.classList.toggle('active', i === 0);
-  });
+  document.querySelectorAll('.gender-pill').forEach((p, i) => p.classList.toggle('active', i === 0));
   loadProducts();
 }
 
-// button event listeners
-document.getElementById('logout-btn').addEventListener('click', logout);
-document.getElementById('search-btn').addEventListener('click', loadProducts);
-document.getElementById('reset-btn').addEventListener('click', resetFilters);
-
-// allow enter key to trigger search
-document.getElementById('search').addEventListener('keydown', e => {
-  if (e.key === 'Enter') loadProducts();
-});
-
-// gender filter buttons
+document.getElementById('logout-btn')?.addEventListener('click', logout);
+document.getElementById('search-btn')?.addEventListener('click', loadProducts);
+document.getElementById('reset-btn')?.addEventListener('click', resetFilters);
+document.getElementById('search')?.addEventListener('keydown', e => { if (e.key === 'Enter') loadProducts(); });
 document.querySelectorAll('.gender-pill').forEach(btn => {
   btn.addEventListener('click', () => setGender(btn.dataset.gender, btn));
 });
 
-// initial setup
 initNav();
 loadCategories();
 loadProducts();

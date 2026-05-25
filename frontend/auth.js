@@ -1,4 +1,4 @@
-// if user already logged in, just send them to home page
+// if user already logged in, redirect to home page
 if (isLoggedIn()) {
   window.location.href = 'index.html';
 }
@@ -16,7 +16,7 @@ function showTab(tab) {
   document.getElementById('alert').style.display = 'none';
 }
 
-// show message (error or success) on screen
+// show message on screen
 function showAlert(msg, type = 'error') {
   const el = document.getElementById('alert');
   el.className     = `alert alert-${type}`;
@@ -26,10 +26,10 @@ function showAlert(msg, type = 'error') {
 
 // handle login button click
 async function handleLogin() {
-  const email    = document.getElementById('login-email').value.trim(); // using email here
+  const email    = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
 
-  // basic check if fields are empty
+  // check empty fields
   if (!email || !password) {
     return showAlert('Please fill in all fields.');
   }
@@ -39,7 +39,7 @@ async function handleLogin() {
   btn.disabled    = true;
 
   try {
-    // calling login function from api.js
+    // call login function from api.js
     await login(email, password);
     window.location.href = 'index.html';
 
@@ -57,12 +57,12 @@ async function handleRegister() {
   const password  = document.getElementById('reg-password').value;
   const password2 = document.getElementById('reg-password2').value;
 
-  // check if any field is missing
+  // check missing fields
   if (!username || !email || !password || !password2) {
     return showAlert('Please fill in all fields.');
   }
 
-  // simple password match check
+  // check password match
   if (password !== password2) {
     return showAlert('Passwords do not match');
   }
@@ -76,7 +76,7 @@ async function handleRegister() {
     showAlert('Account created! Please sign in.', 'success');
     showTab('login');
 
-    // auto fill email in login after register
+    // auto fill email after registration
     document.getElementById('login-email').value = email;
 
   } catch (err) {
@@ -87,7 +87,7 @@ async function handleRegister() {
   }
 }
 
-// click events for tabs and buttons
+// tab click events
 document.getElementById('tab-login').onclick    = () => showTab('login');
 document.getElementById('tab-register').onclick = () => showTab('register');
 

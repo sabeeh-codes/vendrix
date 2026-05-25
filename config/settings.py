@@ -1,14 +1,19 @@
 from pathlib import Path
 from datetime import timedelta
+import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-change-this-in-production-use-env-variable'
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv(BASE_DIR / '.env')
 
-DEBUG = True
+SECRET_KEY = os.getenv('SECRET_KEY', 'fallback-insecure-key-change-this')
+DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = ['*']
 
+# Installed apps in the project
 INSTALLED_APPS = [
     'jazzmin',
     'corsheaders',
@@ -18,17 +23,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
-    # Third-party
     'rest_framework',
     'django_filters',
-
-    # Our apps
     'users',
     'products',
     'orders',
 ]
 
+# Middleware used in the request/response cycle
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
@@ -42,6 +44,7 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'config.urls'
 
+# Template configuration
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -60,22 +63,22 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# database config - using postgresql
+# Database configuration
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'vendrix_db',
-        'USER': 'postgres',
-        'PASSWORD': 'sabi',   
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': os.getenv('DB_NAME', 'vendrix_db'),
+        'USER': os.getenv('DB_USER', 'postgres'),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
-# using custom user model
+# Custom user model
 AUTH_USER_MODEL = 'users.User'
 
-# rest framework and jwt settings
+# Django REST Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -90,11 +93,13 @@ REST_FRAMEWORK = {
     ],
 }
 
+# JWT token settings
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
 }
 
+# Password validation settings
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -102,81 +107,67 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
+# Stripe API keys
+STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY', '')
+STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY', '')
+
+# Jazzmin admin panel settings
 JAZZMIN_SETTINGS = {
-    "site_title": "Vendrix Admin",
-    "site_header": "Vendrix",
-    "site_brand": "Vendrix",
-    "welcome_sign": "Welcome to Vendrix Admin",
-    "copyright": "Vendrix Ltd",
-
-    "topmenu_links": [
-        {"name": "Home", "url": "admin:index"},
-        {"name": "View Site", "url": "/api/products/"},
+    'site_title': 'Vendrix Admin',
+    'site_header': 'Vendrix',
+    'site_brand': 'Vendrix',
+    'welcome_sign': 'Welcome to Vendrix Admin',
+    'copyright': 'Vendrix Ltd',
+    'navigation_expanded': True,
+    'show_sidebar': True,
+    'related_modal_active': True,
+    'icons': {
+        'auth': 'fas fa-users-cog',
+        'users.User': 'fas fa-user',
+        'products.Product': 'fas fa-tshirt',
+        'products.Category': 'fas fa-tags',
+        'products.Color': 'fas fa-palette',
+        'orders.Order': 'fas fa-shopping-bag',
+        'orders.Cart': 'fas fa-shopping-cart',
+    },
+    'topmenu_links': [
+        {'name': 'Home', 'url': 'admin:index'},
+        {'name': 'View Site', 'url': '/api/products/'},
     ],
-
-    "show_sidebar": True,
-    "navigation_expanded": True,
-
-    "icons": {
-        "auth": "fas fa-users-cog",
-        "users.User": "fas fa-user",
-        "products.Product": "fas fa-tshirt",
-        "products.Category": "fas fa-tags",
-        "products.Color": "fas fa-palette",
-        "orders.Order": "fas fa-shopping-bag",
-        "orders.Cart": "fas fa-shopping-cart",
-    },
-
-    "default_icon_parents": "fas fa-chevron-circle-right",
-    "default_icon_children": "fas fa-circle",
-
-    "related_modal_active": True,
-
-    "custom_css": None,
-    "custom_js": None,
-    "show_ui_builder": False,
 }
 
+# Jazzmin UI customization
 JAZZMIN_UI_TWEAKS = {
-    "navbar_small_text": False,
-    "footer_small_text": False,
-    "body_small_text": False,
-    "brand_small_text": False,
-    "brand_colour": "navbar-danger",
-    "accent": "accent-danger",
-    "navbar": "navbar-dark",
-    "no_navbar_border": False,
-    "navbar_fixed": True,
-    "layout_boxed": False,
-    "footer_fixed": False,
-    "sidebar_fixed": True,
-    "sidebar": "sidebar-dark-danger",
-    "sidebar_nav_small_text": False,
-    "sidebar_disable_expand": False,
-    "sidebar_nav_child_indent": True,
-    "sidebar_nav_compact_style": False,
-    "sidebar_nav_legacy_style": False,
-    "sidebar_nav_flat_style": False,
-    "theme": "darkly",
-    "dark_mode_theme": "darkly",
-    "button_classes": {
-        "primary": "btn-danger",
-        "secondary": "btn-secondary",
-        "info": "btn-info",
-        "warning": "btn-warning",
-        "danger": "btn-danger",
-        "success": "btn-success",
+    'theme': 'darkly',
+    'navbar': 'navbar-dark',
+    'sidebar': 'sidebar-dark-danger',
+    'brand_colour': 'navbar-danger',
+    'accent': 'accent-danger',
+    'navbar_fixed': True,
+    'sidebar_fixed': True,
+    'dark_mode_theme': 'darkly',
+    'button_classes': {
+        'primary': 'btn-danger',
+        'secondary': 'btn-secondary',
+        'info': 'btn-info',
+        'warning': 'btn-warning',
+        'danger': 'btn-danger',
+        'success': 'btn-success',
     },
 }
 
+# Language and timezone settings
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
+# Static and media file settings
 STATIC_URL = 'static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Allow all origins for CORS
 CORS_ALLOW_ALL_ORIGINS = True

@@ -5,6 +5,93 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vendrix — Cart</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    .payment-methods {
+      display: flex;
+      gap: 12px;
+      margin: 12px 0;
+    }
+
+    .payment-option {
+      flex: 1;
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+      background: var(--white);
+    }
+
+    .payment-option:hover { border-color: var(--primary); }
+
+    .payment-option.selected {
+      border-color: var(--primary);
+      background: #fff5f7;
+    }
+
+    .payment-option .pay-icon { font-size: 1.8rem; margin-bottom: 6px; }
+    .payment-option .pay-name { font-size: 0.9rem; font-weight: 700; color: var(--dark); }
+    .payment-option .pay-desc { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+
+    #cod-section {
+      display: none;
+      background: #fff8e1;
+      border: 1px solid #ffe082;
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    #cod-section h4 { font-size: 0.95rem; color: #856404; margin-bottom: 6px; }
+    #cod-section p  { font-size: 0.85rem; color: #666; line-height: 1.6; }
+
+    #card-section {
+      display: none;
+      background: #e8eaf6;
+      border: 1px solid #9fa8da;
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+
+    #card-section h4 {
+      font-size: 0.95rem;
+      color: #1a237e;
+      margin-bottom: 12px;
+    }
+
+    #stripe-card-element {
+      background: white;
+      border: 1.5px solid #c5cae9;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 1rem;
+      margin-bottom: 8px;
+    }
+
+    #stripe-card-element.StripeElement--focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(233,69,96,0.1);
+    }
+
+    #card-errors {
+      color: #c0392b;
+      font-size: 0.83rem;
+      margin-top: 6px;
+      min-height: 18px;
+    }
+
+    .stripe-secure {
+      font-size: 0.78rem;
+      color: #5c6bc0;
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+  </style>
 </head>
 <body>
 
@@ -33,10 +120,8 @@
     <p class="page-subtitle">Review your items before checkout</p>
   </div>
 
-  <!-- place to show alerts like errors/success -->
   <div id="alert" style="display:none"></div>
 
-  <!-- cart items will load here -->
   <div id="cart-container">
     <div class="loading">
       <div class="loading-spinner"></div>
@@ -45,25 +130,69 @@
   </div>
 </div>
 
-<!-- checkout popup/modal -->
+<!-- Checkout modal -->
 <div class="modal-overlay" id="checkout-modal">
-  <div class="modal">
+  <div class="modal" style="max-width:520px;">
     <h3>Confirm Your Order</h3>
-    <p class="modal-sub">Enter your shipping address to place the order</p>
+    <p class="modal-sub">Fill in address and choose payment method</p>
 
-    <!-- user enters shipping address here -->
+    <!-- Shipping address -->
     <div class="form-group">
       <label>Full Shipping Address</label>
       <textarea id="shipping-address" rows="3"
         placeholder="House 5, Block C, Rawalpindi, Pakistan"></textarea>
     </div>
 
-    <!-- modal alert messages -->
+    <!-- Payment method selection -->
+    <div class="form-group">
+      <label>Payment Method</label>
+      <div class="payment-methods">
+
+        <div class="payment-option selected"
+             id="opt-cod"
+             onclick="selectPayment('cod')">
+          <div class="pay-icon">💵</div>
+          <div class="pay-name">Cash on Delivery</div>
+          <div class="pay-desc">Pay on delivery</div>
+        </div>
+
+        <div class="payment-option"
+             id="opt-card"
+             onclick="selectPayment('card')">
+          <div class="pay-icon">💳</div>
+          <div class="pay-name">Card Payment</div>
+          <div class="pay-desc">Secure payment via Stripe</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- COD section -->
+    <div id="cod-section">
+      <h4>Cash on Delivery</h4>
+      <p>
+        Your order will be delivered to your address.<br>
+        Please keep cash ready for the rider.
+      </p>
+    </div>
+
+    <!-- Card section -->
+    <div id="card-section">
+      <h4>Card Payment</h4>
+      <div id="stripe-card-element"></div>
+      <div id="card-errors"></div>
+      <div class="stripe-secure">
+        Payments are secured and encrypted by Stripe
+      </div>
+    </div>
+
+    <!-- Modal alert -->
     <div id="modal-alert" style="display:none"></div>
 
-    <!-- action buttons -->
     <div class="modal-actions">
-      <button class="btn btn-primary" style="flex:1" id="place-order-btn">Place Order</button>
+      <button class="btn btn-primary" style="flex:1" id="place-order-btn">
+        Place Order
+      </button>
       <button class="btn btn-ghost" id="cancel-order-btn">Cancel</button>
     </div>
   </div>
@@ -72,7 +201,6 @@
 <script src="api.js"></script>
 <script src="cart.js"></script>
 <script>
-  // setup navbar based on login state
   function initNav() {
     const loggedIn = isLoggedIn();
     const username = localStorage.getItem('username') || '';
@@ -86,7 +214,6 @@
     const navUser = document.getElementById('nav-user');
     if (navUser) navUser.style.display = loggedIn ? 'flex' : 'none';
 
-    // show username + first letter avatar if logged in
     if (loggedIn && username) {
       const navUsername = document.getElementById('nav-username');
       const navAvatar   = document.getElementById('nav-avatar');
@@ -95,7 +222,6 @@
     }
   }
 
-  // run nav setup on page load
   initNav();
 </script>
 </body>

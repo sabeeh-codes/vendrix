@@ -1,15 +1,12 @@
 const API_BASE = 'http://127.0.0.1:8000/api';
 
-// getting token from local storage (if user logged in)
 const getToken = () => localStorage.getItem('access_token');
 
-// save both tokens after login
 function saveTokens(access, refresh) {
   localStorage.setItem('access_token', access);
   localStorage.setItem('refresh_token', refresh);
 }
 
-// remove everything related to user session
 function clearTokens() {
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
@@ -17,148 +14,141 @@ function clearTokens() {
   localStorage.removeItem('email');
 }
 
-// just checks if token exists or not
 function isLoggedIn() {
   return !!getToken();
 }
 
-// adding auth headers if token is there
-const authHeaders = () => {
-  const token = getToken();
+function authHeaders() {
   return {
-    'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` })
+    'Content-Type':  'application/json',
+    'Authorization': `Bearer ${getToken()}`,
   };
-};
+}
 
-// headers for public requests (no auth needed)
-const publicHeaders = () => ({
-  'Content-Type': 'application/json'
-});
+function publicHeaders() {
+  return { 'Content-Type': 'application/json' };
+}
 
-// common fetch function to avoid repeating code
 async function apiFetch(url, options = {}) {
   const res = await fetch(url, options);
 
   let data = {};
-  try {
-    data = await res.json(); // try to convert response to json
-  } catch {}
+  try { data = await res.json(); } catch {}
 
-  // if unauthorized, clear data and send user to login page
   if (res.status === 401) {
     clearTokens();
     window.location.href = 'auth.html';
     throw new Error('Session expired. Please login again.');
   }
 
-  // if request failed, show error message
   if (!res.ok) {
-    throw new Error(
-      Object.values(data).flat().join(' ') ||
-      data.detail ||
-      'Request failed'
-    );
+    const messages = [];
+    for (const key in data) {
+      const val = data[key];
+      if (Array.isArray(val)) messages.push(...val);
+      else if (typeof val === 'string') messages.push(val);
+    }
+    throw new Error(messages.join(' ') || data.detail || 'Something went wrong.');
   }
 
   return data;
 }
 
-// register new user
+// Auth
 async function register(username, email, password, password2) {
   return apiFetch(`${API_BASE}/auth/register/`, {
-    method: 'POST',
+    method:  'POST',
     headers: publicHeaders(),
-    body: JSON.stringify({ username, email, password, password2 })
+    body:    JSON.stringify({ username, email, password, password2 }),
   });
 }
 
-// login user with email + password
 async function login(email, password) {
   const data = await apiFetch(`${API_BASE}/auth/login/`, {
-    method: 'POST',
+    method:  'POST',
     headers: publicHeaders(),
-    body: JSON.stringify({ email, password })   // sending email here, not username
+    body:    JSON.stringify({ email, password }),
   });
-
   saveTokens(data.access, data.refresh);
-
-  // storing username and email from backend response
-  localStorage.setItem('username', data.username);
-  localStorage.setItem('email',    data.email);
-
+  localStorage.setItem('username', data.username || '');
+  localStorage.setItem('email',    data.email    || '');
   return data;
 }
 
-// logout user and clear session
 function logout() {
   clearTokens();
   window.location.href = 'auth.html';
 }
 
-// get all products (can pass filters in params)
+// Products
 async function fetchProducts(params = {}) {
-  const query = new URLSearchParams(params).toString();
-  return apiFetch(`${API_BASE}/products/?${query}`, {
-    headers: publicHeaders()
-  });
+  const q = new URLSearchParams(params).toString();
+  return apiFetch(`${API_BASE}/products/?${q}`, { headers: publicHeaders() });
 }
 
-// get product categories list
 async function fetchCategories() {
-  return apiFetch(`${API_BASE}/categories/`, {
-    headers: publicHeaders()
-  });
+  return apiFetch(`${API_BASE}/categories/`, { headers: publicHeaders() });
 }
 
-// get current user's cart
+// Cart
 async function fetchCart() {
-  return apiFetch(`${API_BASE}/cart/`, {
-    headers: authHeaders()
-  });
+  return apiFetch(`${API_BASE}/cart/`, { headers: authHeaders() });
 }
 
-// add product to cart with optional size
-async function addToCart(product_id, quantity = 1, size = null) {
+// color = color name string (example: "Blue"), backend resolves by name
+async function addToCart(product_id, quantity = 1, size = null, color = null) {
   return apiFetch(`${API_BASE}/cart/add/`, {
-    method: 'POST',
+    method:  'POST',
     headers: authHeaders(),
-    body: JSON.stringify({ product_id, quantity, size })
+    body:    JSON.stringify({ product_id, quantity, size, color }),
   });
 }
 
-// remove product from cart (size optional)
 async function removeFromCart(product_id, size = null) {
   const url = size
-    ? `${API_BASE}/cart/remove/${product_id}/?size=${size}`
+    ? `${API_BASE}/cart/remove/${product_id}/?size=${encodeURIComponent(size)}`
     : `${API_BASE}/cart/remove/${product_id}/`;
-
   return apiFetch(url, {
-    method: 'DELETE',
-    headers: authHeaders()
+    method:  'DELETE',
+    headers: authHeaders(),
   });
 }
 
-// clear whole cart
 async function clearCart() {
   return apiFetch(`${API_BASE}/cart/clear/`, {
-    method: 'DELETE',
-    headers: authHeaders()
-  });
-}
-
-// place order with shipping address
-async function placeOrder(shipping_address) {
-  return apiFetch(`${API_BASE}/orders/place/`, {
-    method: 'POST',
+    method:  'DELETE',
     headers: authHeaders(),
-    body: JSON.stringify({ shipping_address })
   });
 }
 
-// get all orders of logged in user
+// Stripe
+async function createPaymentIntent() {
+  return apiFetch(`${API_BASE}/orders/create-payment-intent/`, {
+    method:  'POST',
+    headers: authHeaders(),
+  });
+}
+
+// Orders
+async function placeOrder(shipping_address, payment_method = 'cod', stripe_payment_intent_id = null) {
+  return apiFetch(`${API_BASE}/orders/place/`, {
+    method:  'POST',
+    headers: authHeaders(),
+    body:    JSON.stringify({ shipping_address, payment_method, stripe_payment_intent_id }),
+  });
+}
+
 async function fetchOrders() {
-  return apiFetch(`${API_BASE}/orders/`, {
-    headers: authHeaders()
+  return apiFetch(`${API_BASE}/orders/`, { headers: authHeaders() });
+}
+
+async function fetchOrderDetail(order_id) {
+  return apiFetch(`${API_BASE}/orders/${order_id}/`, { headers: authHeaders() });
+}
+
+async function cancelOrder(order_id) {
+  return apiFetch(`${API_BASE}/orders/${order_id}/cancel/`, {
+    method:  'POST',
+    headers: authHeaders(),
   });
 }

@@ -1,60 +1,78 @@
-from rest_framework import viewsets, permissions
-from .models import Product, Category, Color
+from rest_framework import viewsets, permissions, filters
+from django_filters.rest_framework import DjangoFilterBackend
+
+from .models    import Product, Category, Color
 from .serializers import (
-    ProductSerializer, ProductWriteSerializer,
-    CategorySerializer, ColorSerializer
+    ProductSerializer,
+    ProductWriteSerializer,
+    CategorySerializer,
+    ColorSerializer,
 )
 from .filters import ProductFilter
 
 
-# viewset for colors
 class ColorViewSet(viewsets.ModelViewSet):
-    queryset = Color.objects.all()
+    queryset         = Color.objects.all()
     serializer_class = ColorSerializer
 
-    # allow public read, admin for write
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
         return [permissions.IsAdminUser()]
 
 
-# viewset for categories
 class CategoryViewSet(viewsets.ModelViewSet):
-    queryset = Category.objects.all()
+    queryset         = Category.objects.all()
     serializer_class = CategorySerializer
 
-    # same permission logic as colors
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
         return [permissions.IsAdminUser()]
 
 
-# viewset for products
 class ProductViewSet(viewsets.ModelViewSet):
-    # only show active products + optimize queries
+    """
+    Filters:
+      ?gender=men
+      ?gender=women
+      ?category=1            by id
+      ?category_name=T-Shirt  by name
+      ?gender=men&category_name=T-Shirt
+      ?search=cotton
+      ?ordering=price
+      ?ordering=-created_at
+      ?min_price=10&max_price=100
+    """
     queryset = Product.objects.filter(
         is_active=True
-    ).select_related('category').prefetch_related('colors')
+    ).select_related(
+        'category'
+    ).prefetch_related(
+        'colors',
+        'images',
+    ).order_by('-created_at')
 
-    # filtering, searching and ordering options
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+
     filterset_class = ProductFilter
-    search_fields = ['name', 'description']
-    ordering_fields = ['price', 'created_at', 'name']
-    ordering = ['-created_at']
+    search_fields   = ['name', 'description']
+    ordering_fields = ['price', 'created_at', 'name', 'stock']
+    ordering        = ['-created_at']
 
-    # use different serializer for write operations
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
             return ProductWriteSerializer
         return ProductSerializer
 
-    # pass request to serializer (needed for full image url)
     def get_serializer_context(self):
+        # Pass request so image URLs are absolute
         return {'request': self.request}
 
-    # public can view, only admin can modify
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
